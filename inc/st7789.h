@@ -18,7 +18,7 @@
 
 /* If u need Backlight control, uncomment below */
 //#define BLK_PORT
-//#define BLK_PIN
+#define BLK_PIN             13      //PC7
 
 
 /*
@@ -282,6 +282,7 @@
 
 #define ABS(x) ((x) > 0 ? (x) : -(x))
 
+
 /* Basic functions. */
 void ST7789_Init(void);
 void ST7789_SetRotation(uint8_t m);
@@ -289,6 +290,7 @@ void ST7789_Fill_Color(uint16_t color);
 void ST7789_DrawPixel(uint16_t x, uint16_t y, uint16_t color);
 void ST7789_Fill(uint16_t xSta, uint16_t ySta, uint16_t xEnd, uint16_t yEnd, uint16_t color);
 void ST7789_DrawPixel_4px(uint16_t x, uint16_t y, uint16_t color);
+void ST7789_BLKCtrl(uint8_t on);
 
 /* Graphical functions. */
 void ST7789_DrawLine(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t color);
