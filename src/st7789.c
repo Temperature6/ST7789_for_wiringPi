@@ -2,6 +2,8 @@
 #include "wiringPiSPI.h"
 #include "wiringPi.h"
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #define HAL_MAX_DELAY	0
 
@@ -129,6 +131,8 @@ void ST7789_Init(void)
 	digitalWrite(ST7789_DC_PIN, HIGH);
 	pinMode(ST7789_CS_PIN, OUTPUT);
 	digitalWrite(ST7789_CS_PIN, HIGH);
+	pinMode(BLK_PIN, OUTPUT);
+	digitalWrite(BLK_PIN, HIGH);
 
 	HAL_Delay(25);
     ST7789_RST_Clr();
@@ -192,17 +196,27 @@ void ST7789_Init(void)
  */
 void ST7789_Fill_Color(uint16_t color)
 {
-	uint16_t i;
+	uint16_t i, j;
 	ST7789_SetAddressWindow(0, 0, ST7789_WIDTH - 1, ST7789_HEIGHT - 1);
 	ST7789_Select();
-	uint16_t j;
-	for (i = 0; i < ST7789_WIDTH; i++)
+
+	uint8_t *src = (uint8_t*)malloc(sizeof(uint8_t) * ST7789_WIDTH * 2);
+	uint8_t data[ST7789_WIDTH * 2] = { 0 };
+	for (uint16_t i = 0; i < ST7789_WIDTH; i++)
 	{
-		for (j = 0; j < ST7789_HEIGHT; j++)
-		{
-			uint8_t data[] = {color >> 8, color & 0xFF};
-			ST7789_WriteData(data, sizeof(data));
-		}
+		*(src + i * 2) = color >> 8;
+		*(src + i * 2 + 1) = color & 0xFF;
+	}
+
+	for (j = 0; j < ST7789_HEIGHT; j++)
+	{
+		// for (i = 0; i < ST7789_WIDTH; i++)
+		// {
+		// 	//uint8_t data[] = {color >> 8, color & 0xFF};
+		// 	ST7789_WriteData(data, sizeof(data));
+		// }
+		memcpy(data, src, ST7789_WIDTH * 2);
+		ST7789_WriteData(data, sizeof(data));
 	}
 			
 	ST7789_UnSelect();
@@ -240,11 +254,22 @@ void ST7789_Fill(uint16_t xSta, uint16_t ySta, uint16_t xEnd, uint16_t yEnd, uin
 	ST7789_Select();
 	uint16_t i, j;
 	ST7789_SetAddressWindow(xSta, ySta, xEnd, yEnd);
+
+	uint8_t *src = (uint8_t*)malloc(sizeof(uint8_t) * (xEnd - xSta + 1) * 2);	//颜色数组
+	uint8_t *data = (uint8_t*)malloc(sizeof(uint8_t) * (xEnd - xSta + 1) * 2);	//发送缓冲区
+	//产生颜色数组
+	for (uint16_t i = 0; i < (xEnd - xSta + 1); i++)
+	{
+		*(src + i * 2) = color >> 8;
+		*(src + i * 2 + 1) = color & 0xFF;
+	}
+	
 	for (i = ySta; i <= yEnd; i++)
-		for (j = xSta; j <= xEnd; j++) {
-			uint8_t data[] = {color >> 8, color & 0xFF};
-			ST7789_WriteData(data, sizeof(data));
-		}
+	{
+		memcpy(data, src, sizeof(uint8_t) * (xEnd - xSta + 1) * 2);
+		ST7789_WriteData(data, sizeof(uint8_t) * (xEnd - xSta + 1) * 2);
+	}
+	
 	ST7789_UnSelect();
 }
 
@@ -431,6 +456,11 @@ void ST7789_InvertColors(uint8_t invert)
 void ST7789_WriteChar(uint16_t x, uint16_t y, char ch, FontDef font, uint16_t color, uint16_t bgcolor)
 {
 	uint32_t i, b, j;
+	uint8_t fg_color[] = {color >> 8, color & 0xFF};
+	uint8_t bg_color[] = {bgcolor >> 8, bgcolor & 0xFF};
+	uint8_t bg_data[2] = { 0 };
+	uint8_t fg_data[2] = { 0 };
+
 	ST7789_Select();
 	ST7789_SetAddressWindow(x, y, x + font.width - 1, y + font.height - 1);
 
@@ -438,12 +468,12 @@ void ST7789_WriteChar(uint16_t x, uint16_t y, char ch, FontDef font, uint16_t co
 		b = font.data[(ch - 32) * font.height + i];
 		for (j = 0; j < font.width; j++) {
 			if ((b << j) & 0x8000) {
-				uint8_t data[] = {color >> 8, color & 0xFF};
-				ST7789_WriteData(data, sizeof(data));
+				memcpy(fg_data, fg_color, sizeof(fg_color));
+				ST7789_WriteData(fg_data, sizeof(fg_data));
 			}
 			else {
-				uint8_t data[] = {bgcolor >> 8, bgcolor & 0xFF};
-				ST7789_WriteData(data, sizeof(data));
+				memcpy(bg_data, bg_color, sizeof(bg_color));
+				ST7789_WriteData(bg_data, sizeof(bg_data));
 			}
 		}
 	}
@@ -743,4 +773,12 @@ void HAL_Delay(uint16_t ms)
 void HAL_SPI_Transmit(uint8_t port, uint8_t* data, uint16_t len, uint8_t unused)
 {
 	wiringPiSPIDataRW(ST7789_SPI_CHANNAL, (char*)data, len);
+}
+
+void ST7789_BLKCtrl(uint8_t on)
+{
+#ifdef BLK_PIN
+	pinMode(BLK_PIN, OUTPUT);
+	digitalWrite(BLK_PIN, on);
+#endif //BLK_PIN
 }
